@@ -46,7 +46,7 @@ public partial class Chunk : Node3D
           var dist = new Vector3(x, y, z).DistanceTo(pos);
           
           var influence = Math.Max(Math.Min((dist - radius) / 0.5f, 1), 0);
-          Data.Points[x][y][z] = influence * Data.Points[x][y][z];
+          // Data.Points[x][y][z] = influence * Data.Points[x][y][z];
         }
       }
     }

@@ -6,131 +6,14 @@ using Godot.Collections;
 [GlobalClass, Tool]
 public partial class ChunkData : Resource
 {
-  FastNoiseLite noise = new FastNoiseLite();
-
-  private int _Size;
-
-  [Export]
-  public int Size {
-    get { return _Size; }
-    set {
-      _Size = value;
-      UpdateArray();
-      return;
-    }
-  }
-
-  [ExportToolButton("Click me")]
-  public Callable ClickMeButton => Callable.From(PopulateArray);
-
-  private Array<Array<Array<float>>> _Points;
+  // [Export]
+  public int Size { get; }
 
   [Export]
-  public Array<Array<Array<float>>> Points
-  {
-    get {
-      return _Points;
-    }
-    set
-    {
-      _Points = value;
-      UpdateArray();
-      return;
-    }
-  }
+  public Texture3D DensityTexture;
 
-  public void PopulateArray()
-  {
-    noise.Seed = 12345;
-    noise.Frequency = 0.05f;
-
-    for (int x = 0; x < Points.Count; x++)
-    {
-      var slice = Points[x];
-      for (int y = 0; y < slice.Count; y++)
-      {
-        var row = slice[y];
-        for (int z = 0; z < row.Count; z++)
-        {
-          var noiseVal = (noise.GetNoise3D(x * 0.5f, y * 0.5f, z * 0.5f) + 1) / 2;
-          // if (y > Size/2)
-          // {
-          //   noiseVal = 0.0f;
-          // }
-          // noiseVal *= (Size - y) / Size;
-
-          row[z] = noiseVal;
-        }
-      }
-    }
-    NotifyPropertyListChanged();
-  }
-
-  public void UpdateArray()
-  {
-    if (Points == null)
-    {
-      Points = [];
-    }
-
-    var oldSize = Points.Count;
-
-    if (oldSize < _Size)
-    {
-      for (int i = 0; i < _Size - oldSize; i ++)
-      {
-        Points.Add([]);
-      }
-    }
-    else if (_Size != oldSize)
-    {
-      Points.Resize(_Size);
-    }
-
-    for (int x = 0; x < Points.Count; x++)
-    {
-      var slice = Points[x];
-
-      oldSize = slice.Count;
-      if (oldSize < _Size)
-      {
-        for (int i = 0; i < _Size - oldSize; i++)
-        {
-          slice.Add([]);
-        }
-      }
-      else if (oldSize != _Size)
-      {
-        slice.Resize(_Size);
-      }
-
-      for (int y = 0; y < slice.Count; y++)
-      {
-        var row = slice[y];
-
-        oldSize = row.Count;
-        if (oldSize < _Size)
-        {
-          for (int i = oldSize; i < _Size; i++)
-          {
-            // var noiseVal = (noise.GetNoise3D(x * 0.5f, y * 0.5f, i * 0.5f) + 1) / 2;
-            // if (y > Size/2)
-            // {
-            //   noiseVal = 0.0f;
-            // }
-            // noiseVal *= (Size - y) / Size;
-            row.Add(0f);
-          }
-        }
-        else if (oldSize != _Size)
-        {
-          row.Resize(_Size);
-        }
-      }
-    }
-
-    NotifyPropertyListChanged();
-  }
+  // [ExportToolButton("Click me")]
+  // public Callable ClickMeButton => Callable.From(PopulateArray);
 
   Vector3 VertexInterp(float iso, Vector3 p1, Vector3 p2, float valp1, float valp2)
   {
@@ -147,11 +30,15 @@ public partial class ChunkData : Resource
     Array<int> bufferIndices = [];
     Array<Vector3> bufferNormals = [];
 
-    for (int x = 1; x < _Size; x ++)
+    var images = DensityTexture.GetData();
+
+    for (int z = 1; z < DensityTexture.GetDepth(); z ++)
     {
-      for (int y = 1; y < _Size; y++)
+      var imageA = images[z - 1];
+      var imageB = images[z];
+      for (int x = 1; x < DensityTexture.GetWidth(); x++)
       {
-        for (int z = 1; z < _Size; z++)
+        for (int y = 1; y < DensityTexture.GetDepth(); y++)
         {
           
 
@@ -160,31 +47,31 @@ public partial class ChunkData : Resource
           float[] density = new float[8];
 
           //                            -1,  -1,  -1
-          cornerPos[0] = new Vector3(x-1, y-1, z-1);
-          density[0] =        Points[x-1][y-1][z-1];
-          // density.Append(Points       [x-1][y-1][z-1]);
+          cornerPos[0] =   new Vector3(x-1, y-1, z-1);
+          density[0] = imageA.GetPixel(x-1, y-1).R;
+
           //                             0,  -1,  -1
-          cornerPos[1] = new Vector3(x  , y-1, z-1);
-          density[1] =        Points[x  ][y-1][z-1];
+          cornerPos[1] =   new Vector3(x  , y-1, z-1);
+          density[1] = imageA.GetPixel(x  , y-1).R;
           //                            -1,   0,  -1
-          cornerPos[2] = new Vector3(x-1, y  , z-1);
-          density[2] =        Points[x-1][y  ][z-1];
+          cornerPos[2] =   new Vector3(x-1, y  , z-1);
+          density[2] = imageA.GetPixel(x-1, y  ).R;
           //                             0,   0,  -1
-          cornerPos[3] = new Vector3(x  , y  , z-1);
-          density[3] =        Points[x  ][y  ][z-1];
+          cornerPos[3] =   new Vector3(x  , y  , z-1);
+          density[3] = imageA.GetPixel(x  , y  ).R;
 
           //                            -1,  -1,   0
-          cornerPos[4] = new Vector3(x-1, y-1, z  );
-          density[4] =        Points[x-1][y-1][z  ];
+          cornerPos[4] =   new Vector3(x-1, y-1, z);
+          density[4] = imageB.GetPixel(x-1, y-1).R;
           //                             0,  -1,   0
-          cornerPos[5] = new Vector3(x  , y-1, z  );
-          density[5] =        Points[x  ][y-1][z  ];
+          cornerPos[5] =   new Vector3(x  , y-1, z);
+          density[5] = imageB.GetPixel(x  , y-1).R;
           //                            -1,   0,   0
-          cornerPos[6] = new Vector3(x-1, y  , z  );
-          density[6] =        Points[x-1][y  ][z  ];
+          cornerPos[6] =   new Vector3(x-1, y  , z);
+          density[6] = imageB.GetPixel(x-1, y).R;
           //                             0,   0,   0
-          cornerPos[7] = new Vector3(x  , y  , z  );
-          density[7] =        Points[x  ][y  ][z  ];
+          cornerPos[7] =   new Vector3(x  , y  , z);
+          density[7] = imageB.GetPixel(x  , y  ).R;
 
           int cubeIndex = 0;
           float isoLevel = 0.5F;
