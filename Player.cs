@@ -50,7 +50,7 @@ public partial class Player : CharacterBody3D
       var radius = 0.5f;
 
       var pos = rayCast.GetCollisionPoint();
-      eChunk.Dig(pos, radius);
+      // eChunk.Dig(pos, radius);
     }
   }
 

@@ -3,7 +3,8 @@
 [ext_resource type="Script" uid="uid://dw8qxs36nn7fr" path="res://ChunkData.cs" id="1_3qxaf"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_3qxaf"]
-frequency = 0.0373
+frequency = 0.0698
+fractal_type = 0
 
 [sub_resource type="NoiseTexture3D" id="NoiseTexture3D_swfub"]
 width = 32
