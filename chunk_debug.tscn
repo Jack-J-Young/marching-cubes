@@ -1,0 +1,21 @@
+[gd_scene load_steps=5 format=3 uid="uid://8oj8cr0o1uwi"]
+
+[ext_resource type="Script" uid="uid://dfcbbqj6sanco" path="res://ChunkDebug.cs" id="1_g6bmv"]
+[ext_resource type="PackedScene" uid="uid://cgbdharjckw4a" path="res://chunk.tscn" id="1_kjudd"]
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_cpck6"]
+frequency = 0.0389
+fractal_type = 0
+
+[sub_resource type="NoiseTexture3D" id="NoiseTexture3D_3nw7k"]
+width = 32
+height = 32
+depth = 32
+normalize = false
+noise = SubResource("FastNoiseLite_cpck6")
+
+[node name="ChunkDebug" type="Node3D"]
+script = ExtResource("1_g6bmv")
+Reference = SubResource("NoiseTexture3D_3nw7k")
+
+[node name="Chunk" parent="." instance=ExtResource("1_kjudd")]
