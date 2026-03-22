@@ -5,7 +5,7 @@ using Godot.Collections;
 public partial class ChunkData : Resource
 {
   [Export]
-  public ImageTexture3D DensityTexture;
+  public ImageTexture3D DensityTexture = new ImageTexture3D();
 
   // public ArrayMesh Mesh = new ArrayMesh();
   public Array arr;

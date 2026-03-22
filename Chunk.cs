@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Godot;
+using Godot.Collections;
 
 #nullable enable
 [Tool]
@@ -39,14 +40,35 @@ public partial class Chunk : Node3D
 
   public void DefferedMeshUpdate()
   {
-    if (EnsureChildren())
+    if (EnsureChildren() && mesherTask == null)
     {
       mesherTask = ChunkMeshManager.RequestChunk(Data);
+      // mesherTask.Di
     }
   }
 
-  public void Dig(Vector3 pos, float radius)
+  public void UpdateChunkFromTexture(Array<Image> data)
   {
+    var width = 33;
+    var height = 33;
+    var depth = 33;
+
+    // var data = texture.GetData();
+
+    Data.DensityTexture.Create(data[0].GetFormat(), width, height, depth, false, data);
+
+    DefferedMeshUpdate();
+    // Data.DensityTexture.Update();
+  }
+
+  public void Dig(Vector3 globalPos, float radius)
+  {
+    if (mesherTask != null)
+    {
+      return;
+    }
+
+    var pos = globalPos - Position;
 
     int minX = (int)Math.Floor(pos.X - radius);
     minX = Math.Max(minX, 0);
@@ -64,6 +86,7 @@ public partial class Chunk : Node3D
     maxZ = Math.Min(maxZ, Data.DensityTexture.GetWidth());
 
     var dat = Data.DensityTexture.GetData();
+    var section = 0.5;
 
     for (int x = minX; x < maxX; x++)
     {
@@ -71,10 +94,23 @@ public partial class Chunk : Node3D
       {
         for (int z = minZ; z < maxZ; z++)
         {
-          dat[z].SetPixel(x, y, new Color(0));
-          // var dist = new Vector3(x, y, z).DistanceTo(pos);
+          // dat[z].SetPixel(x, y, new Color(0));
+          var pixel = dat[z].GetPixel(x, y);
+          var dist = new Vector3(x, y, z).DistanceTo(pos);
+          var scaledDist = dist/radius;
+          var infl = (scaledDist - section)/(1-section);
+          infl *= infl;
+          infl = Math.Clamp(infl, 0, 1);
 
           // var influence = Math.Max(Math.Min((dist - radius) / 0.5f, 1), 0);
+
+          pixel.R *= (float)infl;
+          // GD.Print(pixel);
+          pixel.G *= (float)infl;
+          pixel.B *= (float)infl;
+          // dat[z].
+
+          dat[z].SetPixel(x, y, pixel);
           // Data.Points[x][y][z] = influence * Data.Points[x][y][z];
         }
       }
@@ -111,6 +147,7 @@ public partial class Chunk : Node3D
       // meshInstance!.Mesh = Data.Mesh;
       // collisionShape!.Shape = Data.Mesh.CreateTrimeshShape();
       meshInstance.NotifyPropertyListChanged();
+      mesherTask.Dispose();
       mesherTask = null;
     }
   }

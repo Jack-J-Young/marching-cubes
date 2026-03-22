@@ -10,14 +10,15 @@ public partial class Player : CharacterBody3D
   private Node3D cameraPivot;
 
   private RayCast3D rayCast;
-  private Chunk eChunk;
+  // private Chunk eChunk;
+  private ChunkManager Cm;
   private float pitch = 0f;
 
   public override void _Ready()
   {
     cameraPivot = GetNode<Node3D>("CameraPivot");
     rayCast = GetNode<RayCast3D>("CameraPivot/RayCast3D");
-    eChunk = GetNode<Chunk>("../Chunk");
+    Cm = GetNode<ChunkManager>("../ChunkManager");
 
     Input.MouseMode = Input.MouseModeEnum.Captured;
   }
@@ -45,17 +46,26 @@ public partial class Player : CharacterBody3D
       Input.MouseMode = Input.MouseModeEnum.Captured;
     }
 
-    if (Input.IsActionJustPressed("fire"))
-    {
-      var radius = 5f;
+    // if (Input.IsActionJustPressed("fire"))
+    // {
+    //   var radius = 5f;
 
-      var pos = rayCast.GetCollisionPoint();
-      eChunk.Dig(pos, radius);
-    }
+    //   var pos = rayCast.GetCollisionPoint();
+    //   Cm.Dig(pos, radius);
+    // }
+    
   }
 
   public override void _PhysicsProcess(double delta)
   {
+    if (Input.IsActionPressed("fire"))
+    {
+      var radius = 25f;
+
+      var pos = rayCast.GetCollisionPoint();
+      Cm.Dig(pos, radius);
+    }
+
     Vector3 velocity = Velocity;
 
     // // Gravity

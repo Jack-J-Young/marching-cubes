@@ -17,8 +17,7 @@ public partial class ChunkDebug : Node3D
   public Callable TransferButton => Callable.From(Transfer);
   public void Transfer()
   {
-    var newTexture = new ImageTexture3D();
-    Chunk.Data.DensityTexture = newTexture;
+    var texture = Chunk.Data.DensityTexture;
 
     var width = Reference.GetWidth();
     var height = Reference.GetHeight();
@@ -26,6 +25,6 @@ public partial class ChunkDebug : Node3D
 
     var data = Reference.GetData();
 
-    newTexture.Create(data[0].GetFormat(), width, height, depth, false, data);
+    texture.Create(data[0].GetFormat(), width, height, depth, false, data);
   }
 }
