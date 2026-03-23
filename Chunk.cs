@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Godot.Collections;
@@ -8,12 +9,16 @@ using Godot.Collections;
 public partial class Chunk : Node3D
 {
   [Export]
+  public int Size = 32;
+
+  [Export]
   public ChunkData Data { get; set; } = new ChunkData();
 
   private MeshInstance3D? meshInstance;
   private CollisionShape3D? collisionShape;
 
   private Task? mesherTask;
+  private bool digging;
 
   [ExportToolButton("Update mesh!")]
   public Callable updateMeshButton => Callable.From(DefferedMeshUpdate);
@@ -61,66 +66,180 @@ public partial class Chunk : Node3D
     // Data.DensityTexture.Update();
   }
 
-  public void Dig(Vector3 globalPos, float radius)
+  public void Dig(Vector3 globalPos, Texture3D digTexture)
   {
-    if (mesherTask != null)
+    if (mesherTask != null || digging)
     {
       return;
     }
 
+    // digging = true;
+
     var pos = globalPos - Position;
 
-    int minX = (int)Math.Floor(pos.X - radius);
-    minX = Math.Max(minX, 0);
-    int maxX = (int)Math.Ceiling(pos.X + radius);
-    maxX = Math.Min(maxX, Data.DensityTexture.GetWidth());
+    Vector3 offset = pos.Floor();
 
-    int minY = (int)Math.Floor(pos.Y - radius);
-    minY = Math.Max(minY, 0);
-    int maxY = (int)Math.Ceiling(pos.Y + radius);
-    maxY = Math.Min(maxY, Data.DensityTexture.GetWidth());
+    Vector3 subGridOffset = pos - offset;
+    // TODO use sub grid for dig texture;
+    // GenerateDigTexture();
 
-    int minZ = (int)Math.Floor(pos.Z - radius);
-    minZ = Math.Max(minZ, 0);
-    int maxZ = (int)Math.Ceiling(pos.Z + radius);
-    maxZ = Math.Min(maxZ, Data.DensityTexture.GetWidth());
+    Vector3 textureCenter = Vector3.One * Size * 0.5f;
+    offset -= textureCenter;
 
-    var dat = Data.DensityTexture.GetData();
-    var section = 0.5;
+    Vector3I iOffset = new Vector3I((int)offset.X, (int)offset.Y, (int)offset.Z);
 
-    for (int x = minX; x < maxX; x++)
+    byte[] offsetBytes = new byte[12];
+    BitConverter.GetBytes(iOffset.X).CopyTo(offsetBytes, 0);
+    BitConverter.GetBytes(iOffset.Y).CopyTo(offsetBytes, 4);
+    BitConverter.GetBytes(iOffset.Z).CopyTo(offsetBytes, 8);
+
+    var rd = RenderingServer.GetRenderingDevice();
+
+    var shaderFile = ResourceLoader.Load<RDShaderFile>("res://compute_shader.glsl");
+
+    var shader = rd.ShaderCreateFromSpirV(shaderFile.GetSpirV());
+
+    var pipeline = rd.ComputePipelineCreate(shader);
+
+    // get 3d texture size
+    // get max possible vertices
+
+    var textureView = new RDTextureView
     {
-      for (int y = minY; y < maxY; y++)
-      {
-        for (int z = minZ; z < maxZ; z++)
-        {
-          // dat[z].SetPixel(x, y, new Color(0));
-          var pixel = dat[z].GetPixel(x, y);
-          var dist = new Vector3(x, y, z).DistanceTo(pos);
-          var scaledDist = dist/radius;
-          var infl = 0d;
-          if (scaledDist >= section)
-          {
-            infl = (scaledDist - section) / (1 - section);
-            infl *= infl;
-            infl = Math.Clamp(infl, 0, 1);
-          }
-          
+      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
+    };
 
-          // var influence = Math.Max(Math.Min((dist - radius) / 0.5f, 1), 0);
+    var inputTexture = Data.DensityTexture;
 
-          pixel.R *= (float)infl;
-          // GD.Print(pixel);
-          pixel.G *= (float)infl;
-          pixel.B *= (float)infl;
-          // dat[z].
+    var textureFormat = new RDTextureFormat
+    {
+      TextureType = RenderingDevice.TextureType.Type3D,
+      Width = (uint)inputTexture.GetWidth(),
+      Height = (uint)inputTexture.GetHeight(),
+      Depth = (uint)inputTexture.GetDepth(),
+      Format = RenderingDevice.DataFormat.R8Unorm,
+      UsageBits = RenderingDevice.TextureUsageBits.SamplingBit |
+                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
+                  RenderingDevice.TextureUsageBits.InputAttachmentBit |
+                  RenderingDevice.TextureUsageBits.StorageBit |
+                  RenderingDevice.TextureUsageBits.CanCopyToBit |
+                  RenderingDevice.TextureUsageBits.CanUpdateBit
+    };
 
-          dat[z].SetPixel(x, y, pixel);
-          // Data.Points[x][y][z] = influence * Data.Points[x][y][z];
-        }
-      }
+    var byteData = inputTexture.GetData().ToArray().Select(img => img.GetData());
+    var bytes = byteData.Aggregate((a, b) => [.. a, .. b]);
+
+    var texture = rd.TextureCreate(textureFormat, textureView, [bytes]);
+
+    var texture_uniform = new RDUniform
+    {
+      UniformType = RenderingDevice.UniformType.Image,
+      Binding = 0,
+    };
+
+    texture_uniform.AddId(texture);
+    //
+    var digTextureView = new RDTextureView
+    {
+      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
+    };
+
+    var digInputTexture = digTexture;
+
+    var digTextureFormat = new RDTextureFormat
+    {
+      TextureType = RenderingDevice.TextureType.Type3D,
+      Width = (uint)digInputTexture.GetWidth(),
+      Height = (uint)digInputTexture.GetHeight(),
+      Depth = (uint)digInputTexture.GetDepth(),
+      Format = RenderingDevice.DataFormat.R8Unorm,
+      UsageBits = RenderingDevice.TextureUsageBits.SamplingBit |
+                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
+                  RenderingDevice.TextureUsageBits.InputAttachmentBit |
+                  RenderingDevice.TextureUsageBits.StorageBit
+    };
+    var digByteData = digInputTexture.GetData().ToArray().Select(img => img.GetData());
+    var digBytes = digByteData.Aggregate((a, b) => [.. a, .. b]);
+
+    var digeTexture = rd.TextureCreate(digTextureFormat, digTextureView, [digBytes]);
+
+    var dig_uniform = new RDUniform
+    {
+      UniformType = RenderingDevice.UniformType.Image,
+      Binding = 1,
+    };
+
+    dig_uniform.AddId(digeTexture);
+    //
+    var offsetBuffer = rd.StorageBufferCreate(12, offsetBytes);
+
+    var offsetUniform = new RDUniform
+    {
+      UniformType = RenderingDevice.UniformType.StorageBuffer,
+      Binding = 2
+    };
+
+    offsetUniform.AddId(offsetBuffer);
+
+    // uniform set
+    var uniformSet = rd.UniformSetCreate(
+      [texture_uniform, dig_uniform, offsetUniform],
+      shader, // RDShader
+      0       // set index
+    );
+
+    var computeList = rd.ComputeListBegin();
+
+    rd.ComputeListBindComputePipeline(computeList, pipeline);
+    rd.ComputeListBindUniformSet(computeList, uniformSet, 0);
+    rd.ComputeListDispatch(computeList, 8, 8, 8);
+    rd.ComputeListEnd();
+
+    // var whatever = rd.TextureGetData(texture, layer);
+
+    var outBytes = rd.TextureGetData(texture, 0);
+
+    rd.TextureGetDataAsync(texture, 0, new Callable(this, MethodName.UpdateBytes));
+
+    // var width = Data.DensityTexture.GetWidth();
+    // var height = Data.DensityTexture.GetHeight();
+    // var depth = Data.DensityTexture.GetDepth();
+
+    // Array<Image> images = [];
+    // int layerSize = width * height;
+    // for (int i = 0; i < outBytes.Length; i += layerSize)
+    // {
+    //   images.Add(Image.CreateFromData(width, height, false, Image.Format.R8, outBytes[i..(i + layerSize)]));
+    // }
+    // // var imgTexture = new ImageTexture3D();
+
+    // // imgTexture.Create(Image.Format.R8, width, height, depth, false, images);
+    // // imgTexture.Update()
+
+    // Data.DensityTexture.Update(images);
+
+    // DefferedMeshUpdate();
+  }
+
+  public void UpdateBytes(byte[] bytes)
+  {
+    digging = false;
+    var width = Data.DensityTexture.GetWidth();
+    var height = Data.DensityTexture.GetHeight();
+    // var depth = Data.DensityTexture.GetDepth();
+
+    Array<Image> images = [];
+    int layerSize = width * height;
+    for (int i = 0; i < bytes.Length; i += layerSize)
+    {
+      images.Add(Image.CreateFromData(width, height, false, Image.Format.R8, bytes[i..(i + layerSize)]));
     }
-    Data.DensityTexture.Update(dat);
+    // var imgTexture = new ImageTexture3D();
+
+    // imgTexture.Create(Image.Format.R8, width, height, depth, false, images);
+    // imgTexture.Update()
+
+    Data.DensityTexture.Update(images);
 
     DefferedMeshUpdate();
   }

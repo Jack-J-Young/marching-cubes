@@ -51,28 +51,87 @@ public partial class ChunkManager : Node3D
     Test();
   }
 
-  public void Dig(Vector3 localPos, float localRadius)
+  public void Dig(Vector3 pos, int radius)
   {
-    var pos  = localPos/32f;
-    var radius = localRadius/32f;
+    var rd = RenderingServer.GetRenderingDevice();
 
-    var minX = (int)Math.Floor(pos.X - radius);
-    var maxX = (int)Math.Ceiling(pos.X + radius);
-    var minY = (int)Math.Floor(pos.Y - radius);
-    var maxY = (int)Math.Ceiling(pos.Y + radius);
-    var minZ = (int)Math.Floor(pos.Z - radius);
-    var maxZ = (int)Math.Ceiling(pos.Z + radius);
+    var shaderFile = ResourceLoader.Load<RDShaderFile>("res://dig_compute.glsl");
 
-    for (int x = minX; x <= maxX; x++)
+    var shader = rd.ShaderCreateFromSpirV(shaderFile.GetSpirV());
+
+    var pipeline = rd.ComputePipelineCreate(shader);
+
+    var textureView = new RDTextureView
     {
-      for (int y = minY; y <= maxY; y++)
+      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
+    };
+
+    var textureFormat = new RDTextureFormat
+    {
+      TextureType = RenderingDevice.TextureType.Type3D,
+      Width = (uint)radius*2,
+      Height = (uint)radius*2,
+      Depth = (uint)radius*2,
+      Format = RenderingDevice.DataFormat.R8Unorm,
+      UsageBits = RenderingDevice.TextureUsageBits.StorageBit |
+                  RenderingDevice.TextureUsageBits.CanCopyToBit |
+                  RenderingDevice.TextureUsageBits.CanUpdateBit |
+                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
+                  RenderingDevice.TextureUsageBits.SamplingBit
+    };
+
+    var texture = rd.TextureCreate(textureFormat, textureView);
+
+    var texture_uniform = new RDUniform
+    {
+      UniformType = RenderingDevice.UniformType.Image,
+      Binding = 0,
+    };
+
+    texture_uniform.AddId(texture);
+
+    // uniform set
+    var uniformSet = rd.UniformSetCreate(
+      [texture_uniform],
+      shader, // RDShader
+      0       // set index
+    );
+
+    var computeList = rd.ComputeListBegin();
+
+    rd.ComputeListBindComputePipeline(computeList, pipeline);
+    rd.ComputeListBindUniformSet(computeList, uniformSet, 0);
+    rd.ComputeListDispatch(computeList, (uint)radius*2, (uint)radius *2, (uint)radius *2);
+    rd.ComputeListEnd();
+
+    var bytes = rd.TextureGetData(texture, 0);
+
+    Array<Image> images = [];
+    int layerSize = radius * radius * 4;
+    for (int i = 0; i < bytes.Length; i += layerSize)
+    {
+      images.Add(Image.CreateFromData(radius*2, radius*2, false, Image.Format.R8, bytes[i..(i + layerSize)]));
+    }
+    var imgTexture = new ImageTexture3D();
+
+    imgTexture.Create(Image.Format.R8, radius * 2, radius * 2, radius * 2, false, images);
+
+    // digTexture = imgTexture;
+
+    var chunkPos = pos / 32;
+    var chunkMin = (chunkPos - Vector3.One * radius / 32f).Floor();
+    var chunkMax = (chunkPos + Vector3.One * radius / 32f).Ceil();
+
+    for (int x = (int)chunkMin.X; x <= (int)chunkMax.X; x++)
+    {
+      for (int y = (int)chunkMin.Y; y <= (int)chunkMax.Y; y++)
       {
-        for (int z = minZ; z <= maxZ; z++)
+        for (int z = (int)chunkMin.Z; z <= (int)chunkMax.Z; z++)
         {
-          var chunkPos = new Vector3I(x, y, z);
-          if (Chunks.ContainsKey(chunkPos))
+          var key = new Vector3I(x, y, z);
+          if (Chunks.ContainsKey(key))
           {
-            Chunks[chunkPos].Dig(localPos, localRadius);
+            Chunks[key].Dig(pos, imgTexture);
           }
         }
       }
@@ -86,12 +145,37 @@ public partial class ChunkManager : Node3D
     var chunkPos = new Vector3I(x, y, z);
     var localPos = chunkPos*32;
 
-    Noise.Offset = localPos;
+    // Noise.Offset = localPos;
     // Noise.
-    var data = Noise.GetImage3D(33, 33, 33, normalize: false);
+    // var data = Noise.GetImage3D(33, 33, 33, normalize: false);
+    Array<Image> data = [];
+
+    for (int iz = 0; iz < 33; iz++)
+    {
+      byte[] bytes = new byte[33 * 33];
+      for (int ix = 0; ix < 33; ix++)
+      {
+        for (int iy = 0; iy < 33; iy++)
+        {
+          var i = ix + iy * 33;
+          float fVal = Noise.GetNoise3D(ix + localPos.X, iy + localPos.Y, iz + localPos.Z);
+          fVal = (fVal + 1) * 0.5f;
+          fVal *= 255f;
+          byte bVal = (byte)fVal;
+
+          bytes[i] = bVal;
+        }
+      }
+      data.Add(Image.CreateFromData(33, 33, false, Image.Format.R8, bytes));
+    }
+
+    
     var chunkScene = GD.Load<PackedScene>("res://chunk.tscn");
     var chunk = chunkScene.Instantiate<Chunk>();
     chunk.Data = new ChunkData();
+    chunk.Data.DensityTexture.Create(Image.Format.R8, 33, 33, 33, false, data);
+    
+
 
     // Array<Image> data = [];
 
@@ -116,8 +200,8 @@ public partial class ChunkManager : Node3D
     // chunk.Scale = Vector3.One * 0.999f;
     // var chunk = new Chunk();
     AddChild(chunk);
-    chunk.UpdateChunkFromTexture(data);
-    // chunk.DefferedMeshUpdate();
+    // chunk.UpdateChunkFromTexture(data);
+    chunk.DefferedMeshUpdate();
 
     Chunks.Add(chunkPos, chunk);
     

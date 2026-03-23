@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://cgbdharjckw4a" path="res://chunk.tscn" id="1_kjudd"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_14qqy"]
-frequency = 0.0408
+frequency = 0.0444
 fractal_type = 0
 
 [node name="ChunkDebug" type="Node3D"]

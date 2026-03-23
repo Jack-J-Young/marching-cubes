@@ -56,15 +56,21 @@ public partial class Player : CharacterBody3D
     
   }
 
-  public override void _PhysicsProcess(double delta)
+  public override void _Process(double delta)
   {
+    base._Process(delta);
     if (Input.IsActionPressed("fire"))
     {
-      var radius = 10f;
+      var radius = 10;
 
       var pos = rayCast.GetCollisionPoint();
       Cm.Dig(pos, radius);
     }
+  }
+
+
+  public override void _PhysicsProcess(double delta)
+  {
 
     Vector3 velocity = Velocity;
 
