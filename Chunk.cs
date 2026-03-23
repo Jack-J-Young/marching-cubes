@@ -98,9 +98,14 @@ public partial class Chunk : Node3D
           var pixel = dat[z].GetPixel(x, y);
           var dist = new Vector3(x, y, z).DistanceTo(pos);
           var scaledDist = dist/radius;
-          var infl = (scaledDist - section)/(1-section);
-          infl *= infl;
-          infl = Math.Clamp(infl, 0, 1);
+          var infl = 0d;
+          if (scaledDist >= section)
+          {
+            infl = (scaledDist - section) / (1 - section);
+            infl *= infl;
+            infl = Math.Clamp(infl, 0, 1);
+          }
+          
 
           // var influence = Math.Max(Math.Min((dist - radius) / 0.5f, 1), 0);
 
@@ -139,7 +144,16 @@ public partial class Chunk : Node3D
     if (mesherTask.IsCompleted)
     {
       var mesh = new ArrayMesh();
-      mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, Data.arr);
+      mesh.ClearSurfaces();
+
+      if (Data.arr[(int)Mesh.ArrayType.Vertex].AsByteArray().Length == 0)
+      {
+      }
+      else
+      {
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, Data.arr);
+      }
+      // mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, Data.arr);
 
       meshInstance!.Mesh = mesh;
       collisionShape!.Shape = mesh.CreateTrimeshShape();

@@ -22,7 +22,7 @@ public partial class EditImage : Node3D
     Array<Image> data = [];
     for (int z = 0; z < size; z++)
     {
-      byte[] imageData = new byte[size * size];
+      byte[] imageData = new byte[size * size * 3];
 
       for (int x = 0; x < size; x++)
       {
@@ -42,13 +42,17 @@ public partial class EditImage : Node3D
           // var influence = Math.Max(Math.Min((dist - radius) / 0.5f, 1), 0);
           // dat[z].
 
-          imageData[x + y * size] = (byte)(infl*255f);
+          var b = (byte)(infl * 255f);
+
+          imageData[3 * (x + y * size)] = b;
+          imageData[3 * (x + y * size) + 1] = b;
+          imageData[3 * (x + y * size) + 2] = b;
         }
       }
 
-        data.Add(Image.CreateFromData(size, size, false, Image.Format.R8, imageData));
+      data.Add(Image.CreateFromData(size, size, false, Image.Format.Rgb8, imageData));
     }
 
-    Texture.Create(Image.Format.R8, size, size, size, false, data);
+    Texture.Create(Image.Format.Rgb8, size, size, size, false, data);
   }
 }

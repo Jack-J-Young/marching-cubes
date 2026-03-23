@@ -60,7 +60,7 @@ public partial class Player : CharacterBody3D
   {
     if (Input.IsActionPressed("fire"))
     {
-      var radius = 25f;
+      var radius = 10f;
 
       var pos = rayCast.GetCollisionPoint();
       Cm.Dig(pos, radius);
