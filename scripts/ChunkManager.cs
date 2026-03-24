@@ -155,6 +155,7 @@ public partial class ChunkManager : Node3D
     chunk.Position = localPos;
     AddChild(chunk);
     chunk.DefferedMeshUpdate();
+    // chunk.Scale = Vector3.One * 0.99f;
 
     Chunks.Add(chunkPos, chunk);
     

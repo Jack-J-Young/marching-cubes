@@ -52,17 +52,33 @@ public partial class Player : CharacterBody3D
     {
       Input.MouseMode = Input.MouseModeEnum.Captured;
     }
+  }
+
+  [Export]
+  public double DigRate = 3;
+  private double DigCooldown;
+
+  public override void _Process(double delta)
+  {
+    base._Process(delta);
+
+    DigCooldown -= delta;
+
+    if (DigCooldown > 0)
+    {
+      return;
+    }
 
     if (Input.IsActionPressed("fire"))
     {
-      var radius = 10;
+      var radius = 5;
 
       var pos = rayCast.GetCollisionPoint();
       Cm.Dig(pos, radius);
+
+      DigCooldown = 1/DigRate;
     }
-
   }
-
 
   public override void _PhysicsProcess(double delta)
   {
@@ -70,19 +86,19 @@ public partial class Player : CharacterBody3D
     Vector3 velocity = Velocity;
 
     // // Gravity
-    // if (!IsOnFloor())
-    //   velocity.Y -= 9.8f * (float)delta;
+    if (!IsOnFloor())
+      velocity.Y -= 9.8f * (float)delta;
 
     // Jump
-    // if (Input.IsActionJustPressed("jump") && IsOnFloor())
-    //   velocity.Y = JumpVelocity;
+    if (Input.IsActionJustPressed("jump") && IsOnFloor())
+      velocity.Y = JumpVelocity;
 
     // WASD movement
     Vector2 inputDir = Input.GetVector("move_left", "move_right", "move_forward", "move_back");
 
     Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
 
-    velocity.Y = Input.GetAxis("crouch", "jump") * Speed;
+    // velocity.Y = Input.GetAxis("crouch", "jump") * Speed;
 
     if (direction != Vector3.Zero)
     {

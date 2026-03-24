@@ -129,29 +129,9 @@ public class ChunkComputeManager : IDisposable
       var imgTexture = new ImageTexture3D();
 
       imgTexture.Create(Image.Format.R8, width, height, depth, false, images);
-      // imgTexture.Update()
 
-      // chunk.DensityTexture.Update(images);
       chunk.DensityTexture = imgTexture;
-
-      // // GD.Print($"uniformSet: {uniformSet.Id}");
-      // RD.FreeRid(uniformSet);
-
-      // // GD.Print($"texture: {texture.Id}");
-      // RD.FreeRid(texture);
-      // // GD.Print($"digeTexture: {digeTexture.Id}");
-      // RD.FreeRid(digeTexture);
-      // // GD.Print($"offsetBuffer: {offsetBuffer.Id}");
-      // RD.FreeRid(offsetBuffer);
-      
-
-      // // GD.Print($"pipeline: {pipeline.Id}");
-      // RD.FreeRid(pipeline);
-      // // GD.Print($"shader: {shader.Id}");
-      // RD.FreeRid(shader);
-
-
-      // DefferedMeshUpdate();
+      // chunk.DensityTexture.Update(images);
 
       callback.Invoke();
     }));

@@ -19,7 +19,14 @@ void main() {
   vec4 color = imageLoad(density_tex, uv);
 
   float dist = distance(dig_data.pos, uv)/dig_data.radius;
-  color *= clamp(dist, 0, 1);
+
+  dist = clamp(dist, 0, 1);
+
+  if (dist == 1) {
+    return;
+  }
+
+  color *= dist;
 
   imageStore(density_tex, uv, color);
 }
