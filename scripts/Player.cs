@@ -48,17 +48,11 @@ public partial class Player : CharacterBody3D
 
     // if (Input.IsActionJustPressed("fire"))
     // {
-    //   var radius = 5f;
+    //   var radius = 15;
 
     //   var pos = rayCast.GetCollisionPoint();
     //   Cm.Dig(pos, radius);
     // }
-    
-  }
-
-  public override void _Process(double delta)
-  {
-    base._Process(delta);
     if (Input.IsActionPressed("fire"))
     {
       var radius = 10;
@@ -66,6 +60,19 @@ public partial class Player : CharacterBody3D
       var pos = rayCast.GetCollisionPoint();
       Cm.Dig(pos, radius);
     }
+
+  }
+
+  public override void _Process(double delta)
+  {
+    base._Process(delta);
+    // if (Input.IsActionPressed("fire"))
+    // {
+    //   var radius = 10;
+
+    //   var pos = rayCast.GetCollisionPoint();
+    //   Cm.Dig(pos, radius);
+    // }
   }
 
 

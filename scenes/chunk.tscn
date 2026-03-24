@@ -1,7 +1,7 @@
 [gd_scene load_steps=40 format=4 uid="uid://cgbdharjckw4a"]
 
-[ext_resource type="Script" uid="uid://dg4qx063bl5uc" path="res://Chunk.cs" id="1_eat54"]
-[ext_resource type="Script" uid="uid://dw8qxs36nn7fr" path="res://ChunkData.cs" id="2_eat54"]
+[ext_resource type="Script" uid="uid://dg4qx063bl5uc" path="res://scripts/Chunk.cs" id="1_eat54"]
+[ext_resource type="Script" uid="uid://dw8qxs36nn7fr" path="res://resources/ChunkData.cs" id="2_eat54"]
 
 [sub_resource type="Image" id="Image_eat54"]
 data = {

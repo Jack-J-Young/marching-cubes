@@ -51,91 +51,55 @@ public partial class ChunkManager : Node3D
     Test();
   }
 
+  private ChunkComputeManager ccm = new ChunkComputeManager();
+
+  [Export]
+  public Texture3D? digTexture;
+
+  [ExportToolButton("Dig!")]
+  public Callable DigButton => Callable.From(EnsureDigTexture);
+
+  private void EnsureDigTexture()
+  {
+    ccm.GetDigTextureAsync(20, (images) =>
+    {
+      var texture = new ImageTexture3D();
+      // digTexture.
+      texture.Create(images[0].GetFormat(), 20, 20, 20, false, images);
+      digTexture = texture;
+
+    });
+  }
+
   public void Dig(Vector3 pos, int radius)
   {
-    var rd = RenderingServer.GetRenderingDevice();
-
-    var shaderFile = ResourceLoader.Load<RDShaderFile>("res://dig_compute.glsl");
-
-    var shader = rd.ShaderCreateFromSpirV(shaderFile.GetSpirV());
-
-    var pipeline = rd.ComputePipelineCreate(shader);
-
-    var textureView = new RDTextureView
-    {
-      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
-    };
-
-    var textureFormat = new RDTextureFormat
-    {
-      TextureType = RenderingDevice.TextureType.Type3D,
-      Width = (uint)radius*2,
-      Height = (uint)radius*2,
-      Depth = (uint)radius*2,
-      Format = RenderingDevice.DataFormat.R8Unorm,
-      UsageBits = RenderingDevice.TextureUsageBits.StorageBit |
-                  RenderingDevice.TextureUsageBits.CanCopyToBit |
-                  RenderingDevice.TextureUsageBits.CanUpdateBit |
-                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
-                  RenderingDevice.TextureUsageBits.SamplingBit
-    };
-
-    var texture = rd.TextureCreate(textureFormat, textureView);
-
-    var texture_uniform = new RDUniform
-    {
-      UniformType = RenderingDevice.UniformType.Image,
-      Binding = 0,
-    };
-
-    texture_uniform.AddId(texture);
-
-    // uniform set
-    var uniformSet = rd.UniformSetCreate(
-      [texture_uniform],
-      shader, // RDShader
-      0       // set index
-    );
-
-    var computeList = rd.ComputeListBegin();
-
-    rd.ComputeListBindComputePipeline(computeList, pipeline);
-    rd.ComputeListBindUniformSet(computeList, uniformSet, 0);
-    rd.ComputeListDispatch(computeList, (uint)radius*2, (uint)radius *2, (uint)radius *2);
-    rd.ComputeListEnd();
-
-    var bytes = rd.TextureGetData(texture, 0);
-
-    Array<Image> images = [];
-    int layerSize = radius * radius * 4;
-    for (int i = 0; i < bytes.Length; i += layerSize)
-    {
-      images.Add(Image.CreateFromData(radius*2, radius*2, false, Image.Format.R8, bytes[i..(i + layerSize)]));
-    }
-    var imgTexture = new ImageTexture3D();
-
-    imgTexture.Create(Image.Format.R8, radius * 2, radius * 2, radius * 2, false, images);
-
-    // digTexture = imgTexture;
+    
 
     var chunkPos = pos / 32;
-    var chunkMin = (chunkPos - Vector3.One * radius / 32f).Floor();
-    var chunkMax = (chunkPos + Vector3.One * radius / 32f).Ceil();
-
-    for (int x = (int)chunkMin.X; x <= (int)chunkMax.X; x++)
+    var fChunkPos = chunkPos.Floor();
+    var key = new Vector3I((int)fChunkPos.X, (int)fChunkPos.Y, (int)fChunkPos.Z);
+    if (Chunks.ContainsKey(key))
     {
-      for (int y = (int)chunkMin.Y; y <= (int)chunkMax.Y; y++)
-      {
-        for (int z = (int)chunkMin.Z; z <= (int)chunkMax.Z; z++)
-        {
-          var key = new Vector3I(x, y, z);
-          if (Chunks.ContainsKey(key))
-          {
-            Chunks[key].Dig(pos, imgTexture);
-          }
-        }
-      }
+      Chunks[key].Dig(pos, digTexture, ccm);
     }
+    // var chunkMin = (chunkPos - Vector3.One * radius / 32f).Floor();
+    // var chunkMax = (chunkPos + Vector3.One * radius / 32f).Ceil();
+
+    // Chunks[Vector3I.Zero].Dig(Vector3.Zero, digTexture, ccm);
+    // for (int x = (int)chunkMin.X; x <= (int)chunkMax.X; x++)
+    // {
+    //   for (int y = (int)chunkMin.Y; y <= (int)chunkMax.Y; y++)
+    //   {
+    //     for (int z = (int)chunkMin.Z; z <= (int)chunkMax.Z; z++)
+    //     {
+    //       var key = new Vector3I(x, y, z);
+    //       if (Chunks.ContainsKey(key))
+    //       {
+    //         Chunks[key].Dig(pos, digTexture, ccm);
+    //       }
+    //     }
+    //   }
+    // }
   }
 
   public void GenerateChunk(int x, int y, int z)
@@ -170,11 +134,11 @@ public partial class ChunkManager : Node3D
     }
 
     
-    var chunkScene = GD.Load<PackedScene>("res://chunk.tscn");
+    var chunkScene = GD.Load<PackedScene>("res://scenes/chunk.tscn");
     var chunk = chunkScene.Instantiate<Chunk>();
     chunk.Data = new ChunkData();
     chunk.Data.DensityTexture.Create(Image.Format.R8, 33, 33, 33, false, data);
-    
+    chunk.ccm = ccm;
 
 
     // Array<Image> data = [];

@@ -1,7 +1,7 @@
 [gd_scene load_steps=4 format=3 uid="uid://8oj8cr0o1uwi"]
 
-[ext_resource type="Script" uid="uid://dfcbbqj6sanco" path="res://ChunkDebug.cs" id="1_g6bmv"]
-[ext_resource type="PackedScene" uid="uid://cgbdharjckw4a" path="res://chunk.tscn" id="1_kjudd"]
+[ext_resource type="Script" uid="uid://dfcbbqj6sanco" path="res://scripts/ChunkDebug.cs" id="1_g6bmv"]
+[ext_resource type="PackedScene" uid="uid://cgbdharjckw4a" path="res://scenes/chunk.tscn" id="1_kjudd"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_14qqy"]
 frequency = 0.0444
