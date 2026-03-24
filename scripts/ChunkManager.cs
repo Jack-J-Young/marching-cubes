@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using Godot;
-using Godot.Collections;
+// using Godot.Collections;
 
 [Tool]
 public partial class ChunkManager : Node3D
@@ -53,66 +55,77 @@ public partial class ChunkManager : Node3D
 
   private ChunkComputeManager ccm = new ChunkComputeManager();
 
-  [Export]
-  public Texture3D? digTexture;
-
-  [ExportToolButton("Dig!")]
-  public Callable DigButton => Callable.From(EnsureDigTexture);
-
-  private void EnsureDigTexture()
+  private class DigData
   {
-    ccm.GetDigTextureAsync(20, (images) =>
-    {
-      var texture = new ImageTexture3D();
-      // digTexture.
-      texture.Create(images[0].GetFormat(), 20, 20, 20, false, images);
-      digTexture = texture;
+    public Vector3 LocalPos;
+    public float Radius;
+    public Chunk Chunk;
+  }
 
+  private Queue<DigData> DefferedDigs = [];
+
+  private bool digging = false;
+
+  public override void _Process(double delta)
+  {
+    base._Process(delta);
+
+    if (digging || DefferedDigs.Count == 0)
+    {
+      return;
+    }
+
+    var nextDig = DefferedDigs.Dequeue();
+
+    ccm.Dig(nextDig.LocalPos, nextDig.Radius, nextDig.Chunk.Data, () =>
+    {
+      nextDig.Chunk.DefferedMeshUpdate();
+      digging = false;
     });
   }
 
-  public void Dig(Vector3 pos, int radius)
+
+  public void Dig(Vector3 pos, float radius)
   {
     
 
     var chunkPos = pos / 32;
-    var fChunkPos = chunkPos.Floor();
-    var key = new Vector3I((int)fChunkPos.X, (int)fChunkPos.Y, (int)fChunkPos.Z);
-    if (Chunks.ContainsKey(key))
-    {
-      Chunks[key].Dig(pos, digTexture, ccm);
-    }
-    // var chunkMin = (chunkPos - Vector3.One * radius / 32f).Floor();
-    // var chunkMax = (chunkPos + Vector3.One * radius / 32f).Ceil();
 
-    // Chunks[Vector3I.Zero].Dig(Vector3.Zero, digTexture, ccm);
-    // for (int x = (int)chunkMin.X; x <= (int)chunkMax.X; x++)
-    // {
-    //   for (int y = (int)chunkMin.Y; y <= (int)chunkMax.Y; y++)
-    //   {
-    //     for (int z = (int)chunkMin.Z; z <= (int)chunkMax.Z; z++)
-    //     {
-    //       var key = new Vector3I(x, y, z);
-    //       if (Chunks.ContainsKey(key))
-    //       {
-    //         Chunks[key].Dig(pos, digTexture, ccm);
-    //       }
-    //     }
-    //   }
-    // }
+    var chunkMin = (chunkPos - Vector3.One * radius / 32f).Floor();
+    var chunkMax = (chunkPos + Vector3.One * radius / 32f).Ceil();
+
+    for (int x = (int)chunkMin.X; x <= (int)chunkMax.X; x++)
+    {
+      for (int y = (int)chunkMin.Y; y <= (int)chunkMax.Y; y++)
+      {
+        for (int z = (int)chunkMin.Z; z <= (int)chunkMax.Z; z++)
+        {
+          var key = new Vector3I(x, y, z);
+          if (Chunks.ContainsKey(key))
+          {
+            var chunk = Chunks[key];
+              var localPos = pos - chunk.Position;
+
+              var digData = new DigData
+              {
+                LocalPos = localPos,
+                Radius = radius,
+                Chunk = chunk
+              };
+
+              DefferedDigs.Enqueue(digData);
+          }
+        }
+      }
+    }
   }
 
   public void GenerateChunk(int x, int y, int z)
   {
-    // var chunkPos = new Vector3(x, y, z)*32f;
-
     var chunkPos = new Vector3I(x, y, z);
     var localPos = chunkPos*32;
 
-    // Noise.Offset = localPos;
-    // Noise.
-    // var data = Noise.GetImage3D(33, 33, 33, normalize: false);
-    Array<Image> data = [];
+    List<Image> data = [];
 
     for (int iz = 0; iz < 33; iz++)
     {
@@ -137,34 +150,10 @@ public partial class ChunkManager : Node3D
     var chunkScene = GD.Load<PackedScene>("res://scenes/chunk.tscn");
     var chunk = chunkScene.Instantiate<Chunk>();
     chunk.Data = new ChunkData();
-    chunk.Data.DensityTexture.Create(Image.Format.R8, 33, 33, 33, false, data);
-    chunk.ccm = ccm;
-
-
-    // Array<Image> data = [];
-
-    // for (int _z = 0; _z < 32; _z++)
-    // {
-    //   var layerData = new byte[32 * 32];
-    //   for (int _x = 0; _x < 32; _x++)
-    //   {
-    //     for (int _y = 0; _y < 32; _y++)
-    //     {
-    //       var localPos = new Vector3(_x, _y, _z);
-    //       var noiseF = Noise.GetNoise3Dv(localPos + chunkPos + new Vector3(100, 100, 100));
-    //       noiseF = (noiseF + 1)/2;
-    //       var noiseB = (byte)(noiseF * 255f);
-    //       layerData[_x + _y * 32] = noiseB;
-    //     }
-    //   }
-    //   data.Add(Image.CreateFromData(32, 32, false, Image.Format.R8, layerData));
-    // }
-
+    var gdDataArr = new Godot.Collections.Array<Image>(data.ToArray());
+    chunk.Data.DensityTexture.Create(Image.Format.R8, 33, 33, 33, false, gdDataArr);
     chunk.Position = localPos;
-    // chunk.Scale = Vector3.One * 0.999f;
-    // var chunk = new Chunk();
     AddChild(chunk);
-    // chunk.UpdateChunkFromTexture(data);
     chunk.DefferedMeshUpdate();
 
     Chunks.Add(chunkPos, chunk);

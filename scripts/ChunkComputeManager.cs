@@ -7,137 +7,12 @@ public class ChunkComputeManager : IDisposable
 {
   private RenderingDevice RD { get { return RenderingServer.GetRenderingDevice(); } }
 
-
-  private Rid DigTextureShader;
-  public void EnsureTexturePipeline()
-  {
-    // var shaderFile = ResourceLoader.Load<RDShaderFile>("res://shaders/dig_compute.glsl");
-
-    // DigTextureShader = RD.ShaderCreateFromSpirV(shaderFile.GetSpirV());
-
-    // var pipeline = RD.ComputePipelineCreate(DigTextureShader);
-
-    // var textureView = new RDTextureView
-    // {
-    //   FormatOverride = RenderingDevice.DataFormat.R8Unorm,
-    // };
-
-    // var textureFormat = new RDTextureFormat
-    // {
-    //   TextureType = RenderingDevice.TextureType.Type3D,
-    //   Width = (uint),
-    //   Height = (uint)size,
-    //   Depth = (uint)size,
-    //   Format = RenderingDevice.DataFormat.R8Unorm,
-    //   UsageBits = RenderingDevice.TextureUsageBits.StorageBit |
-    //               RenderingDevice.TextureUsageBits.CanCopyToBit |
-    //               RenderingDevice.TextureUsageBits.CanUpdateBit |
-    //               RenderingDevice.TextureUsageBits.CanCopyFromBit |
-    //               RenderingDevice.TextureUsageBits.SamplingBit
-    // };
-
-    // var texture = RD.TextureCreate(textureFormat, textureView);
-
-    // var texture_uniform = new RDUniform
-    // {
-    //   UniformType = RenderingDevice.UniformType.Image,
-    //   Binding = 0,
-    // };
-
-    // texture_uniform.AddId(texture);
-
-    // // uniform set
-    // var uniformSet = RD.UniformSetCreate(
-    //   [texture_uniform],
-    //   shader, // RDShader
-    //   0       // set index
-    // );
-
-    // var computeList = RD.ComputeListBegin();
-
-    // RD.ComputeListBindComputePipeline(computeList, pipeline);
-    // RD.ComputeListBindUniformSet(computeList, uniformSet, 0);
-    // RD.ComputeListDispatch(computeList, (uint)size, (uint)size, (uint)size);
-    // RD.ComputeListEnd();
-  }
-
-  public void GetDigTextureAsync(int size, Action<Array<Image>> callback)
-  {
-    var shaderFile = ResourceLoader.Load<RDShaderFile>("res://shaders/dig_compute.glsl");
-
-    var shader = RD.ShaderCreateFromSpirV(shaderFile.GetSpirV());
-
-    var pipeline = RD.ComputePipelineCreate(shader);
-
-    var textureView = new RDTextureView
-    {
-      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
-    };
-
-    var textureFormat = new RDTextureFormat
-    {
-      TextureType = RenderingDevice.TextureType.Type3D,
-      Width = (uint)size,
-      Height = (uint)size,
-      Depth = (uint)size,
-      Format = RenderingDevice.DataFormat.R8Unorm,
-      UsageBits = RenderingDevice.TextureUsageBits.StorageBit |
-                  RenderingDevice.TextureUsageBits.CanCopyToBit |
-                  RenderingDevice.TextureUsageBits.CanUpdateBit |
-                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
-                  RenderingDevice.TextureUsageBits.SamplingBit
-    };
-
-    var texture = RD.TextureCreate(textureFormat, textureView);
-
-    var texture_uniform = new RDUniform
-    {
-      UniformType = RenderingDevice.UniformType.Image,
-      Binding = 0,
-    };
-
-    texture_uniform.AddId(texture);
-
-    // uniform set
-    var uniformSet = RD.UniformSetCreate(
-      [texture_uniform],
-      shader, // RDShader
-      0       // set index
-    );
-
-    var computeList = RD.ComputeListBegin();
-
-    RD.ComputeListBindComputePipeline(computeList, pipeline);
-    RD.ComputeListBindUniformSet(computeList, uniformSet, 0);
-    RD.ComputeListDispatch(computeList, (uint)size, (uint)size, (uint)size);
-    RD.ComputeListEnd();
-
-    RD.TextureGetDataAsync(texture, 0, Callable.From<byte[]>((bytes) =>
-    {
-      Array<Image> images = [];
-      int layerSize = size * size;
-      for (int i = 0; i < bytes.Length; i += layerSize)
-      {
-        images.Add(Image.CreateFromData(size, size, false, Image.Format.R8, bytes[i..(i + layerSize)]));
-      }
-
-      RD.FreeRid(uniformSet);
-      RD.FreeRid(texture);
-      RD.FreeRid(pipeline);
-      RD.FreeRid(shader);
-
-      callback.Invoke(images);
-    }));
-  }
-
-
   private Rid DigShader;
   private Rid DigPipeline;
   private Rid ChunkRdTexture;
-  private Rid DigRdTexture;
-  private Rid OffsetBuffer;
+  private Rid DigBuffer;
   private Rid DigUniformSet;
-  public void EnsureDigPipeline(int chunkSize, Texture3D digTexture)
+  public void EnsureDigPipeline(int chunkSize)
   {
     if (DigShader.IsValid)
     {
@@ -183,49 +58,19 @@ public class ChunkComputeManager : IDisposable
 
     texture_uniform.AddId(ChunkRdTexture);
     //
-    var digTextureView = new RDTextureView
-    {
-      FormatOverride = RenderingDevice.DataFormat.R8Unorm,
-    };
+    DigBuffer = RD.StorageBufferCreate(16);
 
-    var digTextureFormat = new RDTextureFormat
-    {
-      TextureType = RenderingDevice.TextureType.Type3D,
-      Width = (uint)digTexture.GetWidth(),
-      Height = (uint)digTexture.GetHeight(),
-      Depth = (uint)digTexture.GetDepth(),
-      Format = RenderingDevice.DataFormat.R8Unorm,
-      UsageBits = RenderingDevice.TextureUsageBits.SamplingBit |
-                  RenderingDevice.TextureUsageBits.CanCopyFromBit |
-                  RenderingDevice.TextureUsageBits.InputAttachmentBit |
-                  RenderingDevice.TextureUsageBits.StorageBit
-    };
-    var digByteData = digTexture.GetData().ToArray().Select(img => img.GetData());
-    var digBytes = digByteData.Aggregate((a, b) => [.. a, .. b]);
-
-    DigRdTexture = RD.TextureCreate(digTextureFormat, digTextureView, [digBytes]);
-
-    var dig_uniform = new RDUniform
-    {
-      UniformType = RenderingDevice.UniformType.Image,
-      Binding = 1,
-    };
-
-    dig_uniform.AddId(DigRdTexture);
-    //
-    OffsetBuffer = RD.StorageBufferCreate(12);
-
-    var offsetUniform = new RDUniform
+    var digUniform = new RDUniform
     {
       UniformType = RenderingDevice.UniformType.StorageBuffer,
-      Binding = 2
+      Binding = 1
     };
 
-    offsetUniform.AddId(OffsetBuffer);
+    digUniform.AddId(DigBuffer);
 
     // uniform set
     DigUniformSet = RD.UniformSetCreate(
-      [texture_uniform, dig_uniform, offsetUniform],
+      [texture_uniform, digUniform],
       DigShader, // RDShader
       0       // set index
     );
@@ -238,16 +83,9 @@ public class ChunkComputeManager : IDisposable
     // RD.ComputeListEnd();
   }
 
-  public void Dig(Vector3I offset, ChunkData chunk, Texture3D digTexture, Action callback)
+  public void Dig(Vector3 pos, float radius, ChunkData chunk, Action callback)
   {
-    EnsureDigPipeline(chunk.DensityTexture.GetWidth(), digTexture);
-
-    byte[] offsetBytes = new byte[12];
-    BitConverter.GetBytes(offset.X).CopyTo(offsetBytes, 0);
-    BitConverter.GetBytes(offset.Y).CopyTo(offsetBytes, 4);
-    BitConverter.GetBytes(offset.Z).CopyTo(offsetBytes, 8);
-
-    
+    EnsureDigPipeline(chunk.DensityTexture.GetWidth());    
 
     Array<byte> bytes = [];
     var images = chunk.DensityTexture.GetData();
@@ -257,8 +95,14 @@ public class ChunkComputeManager : IDisposable
     }
     RD.TextureUpdate(ChunkRdTexture, 0, bytes.ToArray());
 
-    // var offsetBuffer = RD.StorageBufferCreate(12, offsetBytes);
-    RD.BufferUpdate(OffsetBuffer, 0, 12, offsetBytes);
+    byte[] digBytes = new byte[16];
+    BitConverter.GetBytes(pos.X).CopyTo(digBytes, 0);
+    BitConverter.GetBytes(pos.Y).CopyTo(digBytes, 4);
+    BitConverter.GetBytes(pos.Z).CopyTo(digBytes, 8);
+
+    BitConverter.GetBytes(radius).CopyTo(digBytes, 12);
+
+    RD.BufferUpdate(DigBuffer, 0, 16, digBytes);
 
     // uniform set
     var computeList = RD.ComputeListBegin();
@@ -315,6 +159,20 @@ public class ChunkComputeManager : IDisposable
 
   public void Dispose()
   {
-    throw new NotImplementedException();
+    // GD.Print($"uniformSet: {uniformSet.Id}");
+    RD.FreeRid(DigUniformSet);
+
+    // GD.Print($"texture: {texture.Id}");
+    RD.FreeRid(ChunkRdTexture);
+    // GD.Print($"offsetBuffer: {offsetBuffer.Id}");
+    RD.FreeRid(DigBuffer);
+
+
+    // GD.Print($"pipeline: {pipeline.Id}");
+    RD.FreeRid(DigPipeline);
+    // GD.Print($"shader: {shader.Id}");
+    RD.FreeRid(DigShader);
+
+    RD.Dispose();
   }
 }

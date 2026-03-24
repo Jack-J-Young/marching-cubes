@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 public partial class Player : CharacterBody3D
 {
@@ -23,18 +22,26 @@ public partial class Player : CharacterBody3D
     Input.MouseMode = Input.MouseModeEnum.Captured;
   }
 
+  public override void _Notification(int what)
+  {
+    if (what == NotificationWMWindowFocusOut)
+    {
+      // User alt-tabbed or window lost focus
+      Input.MouseMode = Input.MouseModeEnum.Visible;
+    }
+
+    if (what == NotificationWMWindowFocusIn)
+    {
+      // Window regained focus (optional)
+      Input.MouseMode = Input.MouseModeEnum.Captured;
+    }
+  }
+
   public override void _Input(InputEvent e)
   {
     if (e is InputEventMouseMotion motion)
     {
-      // Left / Right rotation
-      RotateY(-motion.Relative.X * MouseSensitivity);
-
-      // Up / Down rotation
-      pitch -= motion.Relative.Y * MouseSensitivity;
-      pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
-
-      cameraPivot.Rotation = new Vector3(pitch, 0, 0);
+      HandleMouseMotion(motion);
     }
     
     if (Input.IsActionJustPressed("ui_cancel"))
@@ -46,13 +53,6 @@ public partial class Player : CharacterBody3D
       Input.MouseMode = Input.MouseModeEnum.Captured;
     }
 
-    // if (Input.IsActionJustPressed("fire"))
-    // {
-    //   var radius = 15;
-
-    //   var pos = rayCast.GetCollisionPoint();
-    //   Cm.Dig(pos, radius);
-    // }
     if (Input.IsActionPressed("fire"))
     {
       var radius = 10;
@@ -61,18 +61,6 @@ public partial class Player : CharacterBody3D
       Cm.Dig(pos, radius);
     }
 
-  }
-
-  public override void _Process(double delta)
-  {
-    base._Process(delta);
-    // if (Input.IsActionPressed("fire"))
-    // {
-    //   var radius = 10;
-
-    //   var pos = rayCast.GetCollisionPoint();
-    //   Cm.Dig(pos, radius);
-    // }
   }
 
 
@@ -109,5 +97,21 @@ public partial class Player : CharacterBody3D
 
     Velocity = velocity;
     MoveAndSlide();
+  }
+
+  private void HandleMouseMotion(InputEventMouseMotion motion)
+  {
+    if (Input.MouseMode != Input.MouseModeEnum.Captured)
+    {
+      return;
+    }
+    // Left / Right rotation
+    RotateY(-motion.Relative.X * MouseSensitivity);
+
+    // Up / Down rotation
+    pitch -= motion.Relative.Y * MouseSensitivity;
+    pitch = Mathf.Clamp(pitch, -1.5f, 1.5f);
+
+    cameraPivot.Rotation = new Vector3(pitch, 0, 0);
   }
 }
