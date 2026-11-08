@@ -18,6 +18,7 @@ public partial class Player : CharacterBody3D
     cameraPivot = GetNode<Node3D>("CameraPivot");
     rayCast = GetNode<RayCast3D>("CameraPivot/RayCast3D");
     Cm = GetNode<ChunkManager>("../ChunkManager");
+    rayCast.Enabled = false; // used only for its transform and target; see _Process
 
     Input.MouseMode = Input.MouseModeEnum.Captured;
   }
@@ -69,11 +70,14 @@ public partial class Player : CharacterBody3D
       return;
     }
 
-    if (Input.IsActionPressed("fire"))
+    // The RayCast3D node only defines the ray; the hit test marches the terrain's density field directly,
+    // so it works at any distance (collision shapes only exist right around the player).
+    var from = rayCast.GlobalPosition;
+    var to = rayCast.ToGlobal(rayCast.TargetPosition);
+    if (Input.IsActionPressed("fire") && Cm.RaycastTerrain(from, to, out var pos))
     {
       var radius = 20;
 
-      var pos = rayCast.GetCollisionPoint();
       Cm.Dig(pos, radius);
 
       DigCooldown = 1/DigRate;

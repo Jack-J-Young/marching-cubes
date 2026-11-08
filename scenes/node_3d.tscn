@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://cx4bpefkbtpb8"]
+[gd_scene load_steps=7 format=3 uid="uid://cx4bpefkbtpb8"]
 
 [ext_resource type="Script" uid="uid://bfgiughcidkry" path="res://scripts/Player.cs" id="1_ns6u7"]
 [ext_resource type="Script" uid="uid://brt0sfuybufc3" path="res://scripts/ChunkManager.cs" id="2_5t4e2"]
 
+[ext_resource type="Script" path="res://scripts/Debug/DebugOverlay.cs" id="3_dbgov"]
 [sub_resource type="SphereShape3D" id="SphereShape3D_r3fl7"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_noarx"]
@@ -57,3 +58,6 @@ transform = Transform3D(1, 0, 0, 0, 0.290652, 0.956829, 0, -0.956829, 0.290652, 
 script = ExtResource("2_5t4e2")
 Noise = SubResource("FastNoiseLite_noarx")
 ColorNoise = SubResource("FastNoiseLite_ns6u7")
+
+[node name="DebugOverlay" type="CanvasLayer" parent="."]
+script = ExtResource("3_dbgov")

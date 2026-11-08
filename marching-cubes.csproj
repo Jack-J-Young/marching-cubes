@@ -4,4 +4,9 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <RootNamespace>marchingcubes</RootNamespace>
   </PropertyGroup>
+  <!-- Voxel generation and meshing are CPU-heavy; unoptimized Debug JIT is several times slower.
+       Remove this group if you need exact line-by-line stepping in the debugger. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <Optimize>true</Optimize>
+  </PropertyGroup>
 </Project>
