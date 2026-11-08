@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://cx4bpefkbtpb8"]
+[gd_scene load_steps=6 format=3 uid="uid://cx4bpefkbtpb8"]
 
 [ext_resource type="Script" uid="uid://bfgiughcidkry" path="res://scripts/Player.cs" id="1_ns6u7"]
 [ext_resource type="Script" uid="uid://brt0sfuybufc3" path="res://scripts/ChunkManager.cs" id="2_5t4e2"]
@@ -6,10 +6,19 @@
 [sub_resource type="SphereShape3D" id="SphereShape3D_r3fl7"]
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_noarx"]
-frequency = 0.013
-offset = Vector3(64, 64, 64)
-fractal_type = 0
-fractal_octaves = 3
+noise_type = 2
+frequency = 0.0124
+fractal_octaves = 2
+fractal_lacunarity = 2.6
+cellular_return_type = 4
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_ns6u7"]
+noise_type = 2
+frequency = 0.0124
+fractal_octaves = 2
+fractal_lacunarity = 2.6
+fractal_gain = 0.15
+cellular_return_type = 0
 
 [node name="Root" type="Node3D"]
 
@@ -45,6 +54,6 @@ omni_shadow_mode = 0
 transform = Transform3D(1, 0, 0, 0, 0.290652, 0.956829, 0, -0.956829, 0.290652, 0, 0, 0)
 
 [node name="ChunkManager" type="Node3D" parent="."]
-transform = Transform3D(0.972602, 0, 0.232478, 0, 1, 0, -0.232478, 0, 0.972602, 0, 0, 0)
 script = ExtResource("2_5t4e2")
 Noise = SubResource("FastNoiseLite_noarx")
+ColorNoise = SubResource("FastNoiseLite_ns6u7")

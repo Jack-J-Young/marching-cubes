@@ -27,9 +27,17 @@ public class ChunkMeshManager
     return p1 + t * (p2 - p1);
   }
 
+  private static Color ColorInterp(float iso, Color c1, Color c2, float valp1, float valp2)
+  {
+    float t = (iso - valp1) / (valp2 - valp1);
+    return c1 + t * (c2 - c1);
+    // return new Color(0);
+  }
+
   public static Array GenerateMeshChannels(ChunkData chunk)
   {
     var DensityTexture = chunk.DensityTexture;
+    var ColorTexture = chunk.ColorTexture;
 
     Array channels = [];
     channels.Resize((int)ArrayMesh.ArrayType.Max);
@@ -37,13 +45,18 @@ public class ChunkMeshManager
     Array<Vector3> bufferVertices = [];
     Array<int> bufferIndices = [];
     Array<Vector3> bufferNormals = [];
+    Array<Color> bufferColor = [];
 
     var images = DensityTexture.GetData();
+    var colImages = ColorTexture.GetData();
 
     for (int z = 1; z < DensityTexture.GetDepth(); z ++)
     {
       var imageA = images[z - 1];
       var imageB = images[z];
+
+      var colImageA = colImages[z - 1];
+      var colImageB = colImages[z];
       for (int x = 1; x < DensityTexture.GetWidth(); x++)
       {
         for (int y = 1; y < DensityTexture.GetDepth(); y++)
@@ -53,33 +66,43 @@ public class ChunkMeshManager
 
           Vector3[] cornerPos = new Vector3[8];
           float[] density = new float[8];
+          Color[] color = new Color[8];
 
           //                            -1,  -1,  -1
           cornerPos[0] =   new Vector3(x-1, y-1, z-1);
           density[0] = imageA.GetPixel(x-1, y-1).R;
+          color[0] = colImageA.GetPixel(x-1, y-1);
 
-          //                             0,  -1,  -1
-          cornerPos[1] =   new Vector3(x  , y-1, z-1);
-          density[1] = imageA.GetPixel(x  , y-1).R;
-          //                            -1,   0,  -1
-          cornerPos[2] =   new Vector3(x-1, y  , z-1);
-          density[2] = imageA.GetPixel(x-1, y  ).R;
-          //                             0,   0,  -1
-          cornerPos[3] =   new Vector3(x  , y  , z-1);
-          density[3] = imageA.GetPixel(x  , y  ).R;
+          //                              0,  -1,  -1
+          cornerPos[1] =    new Vector3(x  , y-1, z-1);
+          density[1] =  imageA.GetPixel(x  , y-1).R;
+          color[1] = colImageA.GetPixel(x  , y-1);
+          //                             -1,   0,  -1
+          cornerPos[2] =    new Vector3(x-1, y  , z-1);
+          density[2] =  imageA.GetPixel(x-1, y  ).R;
+          color[2] = colImageA.GetPixel(x-1, y  );
+          //                              0,   0,  -1
+          cornerPos[3] =    new Vector3(x  , y  , z-1);
+          density[3] =  imageA.GetPixel(x  , y  ).R;
+          color[3] = colImageA.GetPixel(x  , y  );
+          //                             -1,  -1,   0
+          cornerPos[4] =    new Vector3(x-1, y-1, z);
+          density[4] =  imageB.GetPixel(x-1, y-1).R;
+          color[4] = colImageB.GetPixel(x-1, y-1);
+          //                              0,  -1,   0
+          cornerPos[5] =    new Vector3(x  , y-1, z);
+          density[5] =  imageB.GetPixel(x  , y-1).R;
+          color[5] = colImageB.GetPixel(x, y - 1);
+          //                             -1,   0,   0
+          cornerPos[6] =    new Vector3(x-1, y  , z);
+          density[6] =  imageB.GetPixel(x-1, y).R;
+          color[6] = colImageB.GetPixel(x-1, y);
+          //                              0,   0,   0
+          cornerPos[7] =    new Vector3(x  , y  , z);
+          density[7] =  imageB.GetPixel(x  , y  ).R;
+          color[7] = colImageB.GetPixel(x  , y  );
 
-          //                            -1,  -1,   0
-          cornerPos[4] =   new Vector3(x-1, y-1, z);
-          density[4] = imageB.GetPixel(x-1, y-1).R;
-          //                             0,  -1,   0
-          cornerPos[5] =   new Vector3(x  , y-1, z);
-          density[5] = imageB.GetPixel(x  , y-1).R;
-          //                            -1,   0,   0
-          cornerPos[6] =   new Vector3(x-1, y  , z);
-          density[6] = imageB.GetPixel(x-1, y).R;
-          //                             0,   0,   0
-          cornerPos[7] =   new Vector3(x  , y  , z);
-          density[7] = imageB.GetPixel(x  , y  ).R;
+          // GD.Print(density.Join(", "));
 
           int cubeIndex = 0;
           float isoLevel = 0.5F;
@@ -93,9 +116,12 @@ public class ChunkMeshManager
           if (density[6] < isoLevel) cubeIndex |= 64;
           if (density[7] < isoLevel) cubeIndex |= 128;
 
+          // GD.Print(cubeIndex);
+
           var edgeMask = EdgeMasks[cubeIndex];
 
           Vector3[] vertList = new Vector3[12];
+          Color[] colorList = new Color[12];
 
           for (int i = 0; i < 12; i++)
           {
@@ -105,6 +131,7 @@ public class ChunkMeshManager
               int c2 = EdgeVertexIndices[i][1];
 
               vertList[i] = VertexInterp(isoLevel, cornerPos[c1], cornerPos[c2], density[c1], density[c2]);
+              colorList[i] = ColorInterp(isoLevel, color[c1], color[c2], density[c1], density[c2]);
             }
           }
 
@@ -146,6 +173,12 @@ public class ChunkMeshManager
             bufferNormals.Add(normal);
             bufferNormals.Add(normal);
             bufferNormals.Add(normal);
+
+            bufferColor.Add(colorList[TriTable[cubeIndex][i]]);
+            // v0 += new Vector3(x, y, z);
+            bufferColor.Add(colorList[TriTable[cubeIndex][i + 1]]);
+            // v1 += new Vector3(x, y, z);
+            bufferColor.Add(colorList[TriTable[cubeIndex][i + 2]]);
           }
         }
       }
@@ -153,6 +186,7 @@ public class ChunkMeshManager
     channels[(int)ArrayMesh.ArrayType.Vertex] = bufferVertices.ToArray();
     channels[(int)ArrayMesh.ArrayType.Index] = bufferIndices.ToArray();
     channels[(int)ArrayMesh.ArrayType.Normal] = bufferNormals.ToArray();
+    channels[(int)ArrayMesh.ArrayType.Color] = bufferColor.ToArray();
 
     return channels;
   }

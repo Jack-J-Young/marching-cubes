@@ -12,6 +12,8 @@ public partial class ChunkManager : Node3D
 
   [Export]
   public FastNoiseLite Noise { get; set; }
+  [Export]
+  public FastNoiseLite ColorNoise { get; set; }
 
   private Dictionary<Vector3I, Chunk> Chunks = new Dictionary<Vector3I, Chunk>();
 
@@ -126,32 +128,60 @@ public partial class ChunkManager : Node3D
     var localPos = chunkPos*32;
 
     List<Image> data = [];
+    List<Image> colorData = [];
 
     for (int iz = 0; iz < 33; iz++)
     {
       byte[] bytes = new byte[33 * 33];
+      byte[] colBytes = new byte[33 * 33 * 3];
       for (int ix = 0; ix < 33; ix++)
       {
         for (int iy = 0; iy < 33; iy++)
         {
           var i = ix + iy * 33;
-          float fVal = Noise.GetNoise3D(ix + localPos.X, iy + localPos.Y, iz + localPos.Z);
-          fVal = (fVal + 1) * 0.5f;
+          var pos = new Vector3(ix, iy, iz) + localPos;
+          float fVal = Noise.GetNoise3Dv(pos);
+          // fVal = (fVal + 1) * 0.5f;
+          fVal = (fVal + 1) * 2;
+          fVal = Math.Clamp(fVal, 0, 1);
+
+          float hue = ColorNoise.GetNoise3Dv(pos);
+          hue = (hue + 1) * 1f;
+          // hue = (hue + 1) * 0.5f;
+          Color c = Color.FromHsv(hue, Math.Clamp((fVal - 0.5f)*8, 0, 1), Math.Clamp((fVal - hue * 0.25f), 0, 1));
+
+
           fVal *= 255f;
           byte bVal = (byte)fVal;
 
           bytes[i] = bVal;
+
+
+          byte r = (byte)(c.R * 255f);
+          byte g = (byte)(c.G * 255f);
+          byte b = (byte)(c.B * 255f);
+
+          colBytes[i * 3] = r;
+          colBytes[i * 3 + 1] = g;
+          colBytes[i * 3 + 2] = b;
         }
       }
       data.Add(Image.CreateFromData(33, 33, false, Image.Format.R8, bytes));
+      colorData.Add(Image.CreateFromData(33, 33, false, Image.Format.Rgb8, colBytes));
     }
+    // var colorTexture = Chunk.Data.ColorTexture;
 
-    
+    // colorTexture.Create(Image.Format.Rgb8, Size, Size, Size, false, colorData);
+
+
+
     var chunkScene = GD.Load<PackedScene>("res://scenes/chunk.tscn");
     var chunk = chunkScene.Instantiate<Chunk>();
     chunk.Data = new ChunkData();
     var gdDataArr = new Godot.Collections.Array<Image>(data.ToArray());
     chunk.Data.DensityTexture.Create(Image.Format.R8, 33, 33, 33, false, gdDataArr);
+    var gdColorDataArr = new Godot.Collections.Array<Image>(colorData.ToArray());
+    chunk.Data.ColorTexture.Create(Image.Format.Rgb8, 33, 33, 33, false, gdColorDataArr);
     chunk.Position = localPos;
     AddChild(chunk);
     chunk.DefferedMeshUpdate();
