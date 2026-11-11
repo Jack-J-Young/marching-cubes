@@ -66,4 +66,13 @@ public static class VoxelMath
   }
 
   public static bool SphereIntersectsAabb(Vector3 c, float r, Aabb box) => DistanceToAabb(c, box) <= r;
+
+  /// <summary>Distance from p to the segment a-b.</summary>
+  public static float DistanceToSegment(Vector3 p, Vector3 a, Vector3 b)
+  {
+    var ab = b - a;
+    float len2 = ab.LengthSquared();
+    float t = len2 > 1e-12f ? Mathf.Clamp((p - a).Dot(ab) / len2, 0f, 1f) : 0f;
+    return p.DistanceTo(a + ab * t);
+  }
 }

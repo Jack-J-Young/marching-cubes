@@ -375,6 +375,7 @@ public partial class DebugOverlay : CanvasLayer
     ["godot mesh arrays"] = new Color("edc948"),
     ["collision faces"] = new Color("b07aa1"),
     ["volume cache"] = new Color("9c755f"),
+    ["dig morph offsets"] = new Color("76b7b2"),
   };
 
   /// <summary>Fixed colors for known sections; anything else gets a stable hash-based hue.</summary>
@@ -418,7 +419,23 @@ public partial class DebugOverlay : CanvasLayer
                 $"per chunk: generate {t.AvgGenerateMs:F1} ms + mesh {t.AvgMeshMs:F1} ms, octree build {t.OctreeBuildMs:F1} ms");
       lines.Add($"Terrain main thread: {t.LastFrame.TotalMs:F2} ms this frame   meshes {t.VertexCount / 1e6:F2}M vertices, " +
                 $"{t.CachedVolumes} cached volumes, {t.EditCount} digs, {VoxelProfiler.ChunksBuilt} chunks built " +
-                $"({VoxelProfiler.ChunksEmpty} empty)");
+                $"({VoxelProfiler.ChunksEmpty} empty)" +
+                (t.Uniform is { } u ? $", {u.Count} chunks known all air / rock ({u.Hits} builds skipped)" : ""));
+      var ships = GetNodeOrNull<Ships.ShipBuilder>("../Ships");
+      if (ships != null)
+      {
+        lines.Add($"Ships: {ships.SimulatingCount} simulating, {ships.PausedCount - ships.UnloadedCount} waiting for collision, " +
+                  $"{ships.UnloadedCount} unloaded (outside the loaded chunks), " +
+                  $"{t.RequestedCollisionChunks} terrain chunks with collision for ships");
+        foreach (var s in ships.Ships)
+          if (s.AI is { } ai)
+            lines.Add($"AI ship ({ai.Job}): {ai.State}, {ai.DistanceToTarget:0} from {(ai.Job == Ships.AIJob.Dig ? "rock" : "target")}, " +
+                      (ai.LineClear ? "clear line" : $"path {ai.Path.Count} waypoints") +
+                      $", {ai.PlanCount} plans (last {ai.LastPlanMs:0.0} ms){(ai.WhiskerBlocked ? ", rock ahead" : "")}");
+      }
+      lines.Add($"Edit batches: {t.BatchInFlight} building, {t.BatchQueued} queued, last {t.LastBatchSize} chunks in " +
+                $"{t.LastBatchMs:F0} ms ({t.BatchesCommitted} committed, {t.EditsMerged} digs merged), {t.MorphingChunks} morphing ({t.LastMorphSeconds * 1000:F0} ms), " +
+                $"collision queue {t.CollisionQueueLength}");
     }
 
     lines.Add($"Render: {Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame):F0} draw calls, " +

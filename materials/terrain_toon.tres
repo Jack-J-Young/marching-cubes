@@ -1,0 +1,24 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" uid="uid://dbiybtesgo2ax" path="res://shaders/terrain.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://pstl3tf1jq64" path="res://textures/hatch_light.png" id="2_light"]
+[ext_resource type="Texture2D" uid="uid://cibir1m8gpalc" path="res://textures/hatch_dark.png" id="3_dark"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/hatch_light = ExtResource("2_light")
+shader_parameter/hatch_dark = ExtResource("3_dark")
+shader_parameter/hatch_world_space = true
+shader_parameter/hatch_pixel_scale = 1.5
+shader_parameter/triplanar_sharpness = 6.0
+shader_parameter/light_band = 0.45
+shader_parameter/dark_band = 0.15
+shader_parameter/band_softness = 0.02
+shader_parameter/ink_strength = 0.7
+shader_parameter/dark_paper = 0.85
+shader_parameter/color_amount = 1.0
+shader_parameter/color_steps = 4
+shader_parameter/saturation_steps = 3
+shader_parameter/hue_steps = 0
+shader_parameter/paper_lift = 0.35
+shader_parameter/fill_light_strength = 0.6

@@ -19,6 +19,7 @@ public static class VoxelProfiler
     GodotArrays,
     CollisionFaces,
     Cache,
+    Morph,
     Count,
   }
 
@@ -32,10 +33,24 @@ public static class VoxelProfiler
     "godot mesh arrays",
     "collision faces",
     "volume cache",
+    "dig morph offsets",
   ];
 
   private static readonly long[] _ticks = new long[(int)Section.Count];
   private static long _chunksBuilt;
+  private static long _cacheHits, _cacheMisses, _editsApplied;
+
+  /// <summary>Volumes reused from the cache vs generated from noise.</summary>
+  public static long CacheHits => Interlocked.Read(ref _cacheHits);
+  public static long CacheMisses => Interlocked.Read(ref _cacheMisses);
+  /// <summary>Edits applied to volumes (each touches every sample in its sphere).</summary>
+  public static long EditsApplied => Interlocked.Read(ref _editsApplied);
+
+  public static void CountVolume(bool hit, int editsApplied)
+  {
+    Interlocked.Increment(ref hit ? ref _cacheHits : ref _cacheMisses);
+    Interlocked.Add(ref _editsApplied, editsApplied);
+  }
   private static long _chunksEmpty;
 
   public static long ChunksBuilt => Interlocked.Read(ref _chunksBuilt);

@@ -70,20 +70,39 @@ public sealed class TerrainGenerator
 {
   private readonly NoiseSampler _density;
   private readonly NoiseSampler _hue;
+  private readonly Vector3 _clearCenter;
+  private readonly float _clearRadius, _clearEdge;
   public EditStore Edits { get; }
 
-  public TerrainGenerator(Godot.FastNoiseLite density, Godot.FastNoiseLite hue, EditStore edits)
+  /// <summary>
+  /// clearRadius &gt; 0 hollows out a sphere of empty space around clearCenter (the spawn), its wall blending into
+  /// the rock over clearEdge units.
+  /// </summary>
+  public TerrainGenerator(Godot.FastNoiseLite density, Godot.FastNoiseLite hue, EditStore edits,
+    Vector3 clearCenter = default, float clearRadius = 0f, float clearEdge = 8f)
   {
     _density = new NoiseSampler(density);
     _hue = new NoiseSampler(hue);
     Edits = edits;
+    _clearCenter = clearCenter;
+    _clearRadius = clearRadius;
+    _clearEdge = Math.Max(clearEdge, 0.5f);
   }
 
-  /// <summary>Unedited density in [0, 1]. Same formula as the old ChunkManager.GenerateChunk.</summary>
+  /// <summary>Unedited density in [0, 1]: the noise, minus the spawn clearing.</summary>
   public float RawDensity(float x, float y, float z)
   {
+    float wall = 1f;
+    if (_clearRadius > 0f)
+    {
+      float dx = x - _clearCenter.X, dy = y - _clearCenter.Y, dz = z - _clearCenter.Z;
+      float dist = MathF.Sqrt(dx * dx + dy * dy + dz * dz);
+      // 0 inside, the iso level (0.5) at the radius, solid-allowed past radius + edge / 2.
+      wall = Math.Clamp(0.5f + (dist - _clearRadius) / _clearEdge, 0f, 1f);
+      if (wall <= 0f) return 0f; // deep inside: no noise needed
+    }
     float n = _density.Get(x, y, z);
-    return Math.Clamp((n + 1f) * 2f, 0f, 1f);
+    return Math.Min(Math.Clamp((n + 1f) * 2f, 0f, 1f), wall);
   }
 
   /// <summary>Density with the given edits (sorted by Seq) applied.</summary>

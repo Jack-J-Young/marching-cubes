@@ -54,7 +54,12 @@ public partial class ChunkDebug : Node3D
       _preview = new MeshInstance3D { Name = "Preview" };
       AddChild(_preview);
     }
-    _preview.MaterialOverride = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
+    // Same look as the game: the terrain style template (falls back to the bare shader).
+    var material = ResourceLoader.Exists("res://materials/terrain_toon.tres")
+      ? (ShaderMaterial)GD.Load<ShaderMaterial>("res://materials/terrain_toon.tres").Duplicate()
+      : new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
+    material.SetShaderParameter("lod_mask", LodMask);
+    _preview.MaterialOverride = material;
     _preview.Position = key.Origin;
 
     if (buf.IndexCount == 0)
@@ -68,7 +73,6 @@ public partial class ChunkDebug : Node3D
       mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, buf.ToSurfaceArrays(), null, null, format);
       _preview.Mesh = mesh;
     }
-    _preview.SetInstanceShaderParameter("lod_mask", LodMask);
 
     GD.Print($"ChunkDebug {key}: generate {genMs:F1} ms, mesh {meshMs:F1} ms, " +
              $"{buf.VertexCount} vertices, {buf.IndexCount / 3} triangles " +

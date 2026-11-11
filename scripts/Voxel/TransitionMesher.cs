@@ -37,13 +37,24 @@ public static class TransitionMesher
     public readonly Vector3[] Gradients = new Vector3[G * G];
     public readonly bool[] HasGradient = new bool[G * G];
     public readonly Dictionary<long, int> Verts = [];
+    public readonly List<SphereEdit> FaceEdits = [];
   }
 
   public static void Mesh(VoxelVolume vol, TerrainGenerator gen, List<SphereEdit> edits, MeshBuffers buf, Scratch s)
   {
+    float step = vol.Key.Step;
+    var origin = (Vector3)vol.Key.Origin;
     for (int f = 0; f < 6; f++)
     {
-      MeshFace(f, vol, gen, edits, buf, s);
+      // Only edits near this face can change what's sampled for it (on it, and a cell either side for gradients):
+      // a chunk with lots of digs inside it would otherwise apply all of them to every seam sample.
+      var p0 = origin + (Vector3)FaceOrigin[f] * step;
+      var p1 = p0 + (Vector3)(FaceU[f] + FaceV[f]) * (Cells * step);
+      var box = new Aabb(p0, Vector3.Zero).Expand(p1).Grow(step * 1.5f);
+      s.FaceEdits.Clear();
+      foreach (var e in edits)
+        if (VoxelMath.SphereIntersectsAabb(e.Center, e.Radius, box)) s.FaceEdits.Add(e);
+      MeshFace(f, vol, gen, s.FaceEdits, buf, s);
     }
   }
 
@@ -69,6 +80,13 @@ public static class TransitionMesher
           int vi = Index(c.X, c.Y, c.Z);
           dv = vol.Density[vi];
           rv = vol.Raw[vi];
+        }
+        else if (vol.HasFaces)
+        {
+          // Cached with the volume (noise once, edits applied incrementally).
+          int fi = (f * G + b) * G + a;
+          dv = vol.FaceDensity![fi];
+          rv = vol.FaceRaw![fi];
         }
         else
         {
@@ -212,27 +230,62 @@ public static class TransitionMesher
     float dv = b > 0 && b < G - 1
       ? s.Density[g + G] - s.Density[g - G]
       : gen.Density(p + v * h, edits) - gen.Density(p - v * h, edits);
-    float dn = gen.Density(p + n * h, edits) - gen.Density(p - n * h, edits);
+    float dn = vol.HasFaces
+      ? DepthDensity(vol, gen, edits, f, g, p + n * h, 1) - DepthDensity(vol, gen, edits, f, g, p - n * h, 0)
+      : gen.Density(p + n * h, edits) - gen.Density(p - n * h, edits);
     var grad = u * du + v * dv + n * dn;
     s.Gradients[g] = grad;
     s.HasGradient[g] = true;
     return grad;
   }
 
+  /// <summary>Density half a cell off the face (side 1 = inward): cached noise, edits applied on the spot.</summary>
+  private static float DepthDensity(VoxelVolume vol, TerrainGenerator gen, List<SphereEdit> edits, int f, int g, Vector3 p, int side)
+  {
+    int i = (f * G * G + g) * 2 + side;
+    float d = vol.FaceDepthRaw![i];
+    if (float.IsNaN(d))
+    {
+      d = gen.RawDensity(p.X, p.Y, p.Z);
+      vol.FaceDepthRaw[i] = d;
+    }
+    foreach (var e in edits) d = e.Apply(p, d);
+    return d;
+  }
+
   private static Color FaceColor(int f, int g, VoxelVolume vol, TerrainGenerator gen, Scratch s)
   {
+    if (vol.HasFaces)
+    {
+      // Cached with the volume: even points are volume samples, odd points live in FaceColors.
+      int a = g % G, b = g / G;
+      if (((a | b) & 1) == 0)
+      {
+        var cp = FaceOrigin[f] + FaceU[f] * (a >> 1) + FaceV[f] * (b >> 1);
+        return vol.ColorAt(gen, Index(cp.X, cp.Y, cp.Z), cp.X, cp.Y, cp.Z);
+      }
+      int fi = f * G * G + g;
+      uint fc = vol.FaceColors![fi];
+      if (fc == 0)
+      {
+        var p = vol.FacePoint(f, a, b);
+        fc = TerrainGenerator.Pack(gen.ColorAt(p, Math.Max(vol.FaceRaw![fi], vol.FaceDensity![fi])));
+        vol.FaceColors[fi] = fc;
+      }
+      return TerrainGenerator.Unpack(fc);
+    }
     uint c = s.Colors[g];
     if (c == 0)
     {
       var p = (Vector3)vol.Key.Origin + CellPos(f, g % G, g / G) * vol.Key.Step;
-      c = TerrainGenerator.Pack(gen.ColorAt(p, s.Raw[g]));
+      c = TerrainGenerator.Pack(gen.ColorAt(p, Math.Max(s.Raw[g], s.Density[g])));
       s.Colors[g] = c;
     }
     return TerrainGenerator.Unpack(c);
   }
 
   /// <summary>Position (in cells) of face grid point (a, b), where a and b count half cells.</summary>
-  private static Vector3 CellPos(int f, int a, int b) =>
+  public static Vector3 CellPos(int f, int a, int b) =>
     (Vector3)FaceOrigin[f] + (Vector3)FaceU[f] * (a * 0.5f) + (Vector3)FaceV[f] * (b * 0.5f);
 
   private static Vector3I AxisUnit(int axis) => axis == 0 ? Vector3I.Right : axis == 1 ? Vector3I.Up : Vector3I.Back;

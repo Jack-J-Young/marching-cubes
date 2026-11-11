@@ -1,10 +1,29 @@
-[gd_scene load_steps=7 format=3 uid="uid://cx4bpefkbtpb8"]
+[gd_scene format=3 uid="uid://cx4bpefkbtpb8"]
 
 [ext_resource type="Script" uid="uid://bfgiughcidkry" path="res://scripts/Player.cs" id="1_ns6u7"]
 [ext_resource type="Script" uid="uid://brt0sfuybufc3" path="res://scripts/ChunkManager.cs" id="2_5t4e2"]
+[ext_resource type="Script" uid="uid://bjjy71tu021m0" path="res://scripts/Debug/DebugOverlay.cs" id="3_dbgov"]
+[ext_resource type="Material" path="res://materials/terrain_toon.tres" id="4_toon"]
+[ext_resource type="Shader" uid="uid://dsb65ufrrcdgc" path="res://shaders/outline_post.gdshader" id="5_outline"]
+[ext_resource type="Script" uid="uid://dku0vfhvpbr0q" path="res://scripts/Ships/ShipBuilder.cs" id="6_ships"]
+[ext_resource type="Script" path="res://scripts/Map/TerrainMap.cs" id="7_map"]
 
-[ext_resource type="Script" path="res://scripts/Debug/DebugOverlay.cs" id="3_dbgov"]
 [sub_resource type="SphereShape3D" id="SphereShape3D_r3fl7"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_outline"]
+render_priority = -10
+shader = ExtResource("5_outline")
+shader_parameter/line_color = Color(0.09, 0.08, 0.07, 1)
+shader_parameter/line_width = 1.5
+shader_parameter/silhouette_threshold = 0.06
+shader_parameter/crease_threshold = 0.02
+shader_parameter/crease_strength = 0.6
+shader_parameter/fade_start = 250.0
+shader_parameter/fade_end = 600.0
+
+[sub_resource type="QuadMesh" id="QuadMesh_outline"]
+material = SubResource("ShaderMaterial_outline")
+size = Vector2(2, 2)
 
 [sub_resource type="FastNoiseLite" id="FastNoiseLite_noarx"]
 noise_type = 2
@@ -21,43 +40,58 @@ fractal_lacunarity = 2.6
 fractal_gain = 0.15
 cellular_return_type = 0
 
-[node name="Root" type="Node3D"]
+[node name="Root" type="Node3D" unique_id=1716605193]
 
-[node name="Player" type="CharacterBody3D" parent="."]
+[node name="Player" type="CharacterBody3D" parent="." unique_id=159548968]
 transform = Transform3D(-0.0177839, 0, -0.999842, 0, 1, 0, 0.999842, 0, -0.0177839, -6.57342, 5.3002, 12.6727)
 script = ExtResource("1_ns6u7")
 Speed = 50.0
 JumpVelocity = 50.0
+DigSpeed = 20.0
+DigTickRate = 120.0
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player" unique_id=806074524]
 transform = Transform3D(1, 0, 0, -1.86265e-09, 1, -2.37487e-08, 0, 3.6438e-08, 1, 0, 0, 0)
 shape = SubResource("SphereShape3D_r3fl7")
 
-[node name="CameraPivot" type="Node3D" parent="Player"]
+[node name="CameraPivot" type="Node3D" parent="Player" unique_id=513146035]
 
-[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot"]
+[node name="Camera3D" type="Camera3D" parent="Player/CameraPivot" unique_id=221180904]
 transform = Transform3D(1, 0, 0, -1.86265e-09, 1, -2.35159e-08, 0, 3.63216e-08, 1, 0, 0, 0)
 current = true
+fov = 90.0
 
-[node name="SpotLight3D" type="SpotLight3D" parent="Player/CameraPivot"]
+[node name="OutlinePost" type="MeshInstance3D" parent="Player/CameraPivot/Camera3D" unique_id=1274288779]
+cast_shadow = 0
+extra_cull_margin = 16384.0
+mesh = SubResource("QuadMesh_outline")
+
+[node name="SpotLight3D" type="SpotLight3D" parent="Player/CameraPivot" unique_id=273344846]
 transform = Transform3D(1, 0, 0, -1.86265e-09, 1, -2.35159e-08, 0, 3.63216e-08, 1, 0, 0, 0)
 spot_range = 7.7849
 spot_angle = 18.4814
 
-[node name="RayCast3D" type="RayCast3D" parent="Player/CameraPivot"]
+[node name="RayCast3D" type="RayCast3D" parent="Player/CameraPivot" unique_id=785963326]
 target_position = Vector3(0, 0, -1000)
 
-[node name="OmniLight3D" type="OmniLight3D" parent="Player/CameraPivot"]
+[node name="OmniLight3D" type="OmniLight3D" parent="Player/CameraPivot" unique_id=1808113479]
 omni_range = 5.08503
 omni_shadow_mode = 0
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=843875717]
 transform = Transform3D(1, 0, 0, 0, 0.290652, 0.956829, 0, -0.956829, 0.290652, 0, 0, 0)
 
-[node name="ChunkManager" type="Node3D" parent="."]
+[node name="ChunkManager" type="Node3D" parent="." unique_id=416463511]
 script = ExtResource("2_5t4e2")
 Noise = SubResource("FastNoiseLite_noarx")
 ColorNoise = SubResource("FastNoiseLite_ns6u7")
+TerrainMaterial = ExtResource("4_toon")
 
-[node name="DebugOverlay" type="CanvasLayer" parent="."]
+[node name="Ships" type="Node3D" parent="." unique_id=1231622814]
+script = ExtResource("6_ships")
+
+[node name="Map" type="Node" parent="."]
+script = ExtResource("7_map")
+
+[node name="DebugOverlay" type="CanvasLayer" parent="." unique_id=242798283]
 script = ExtResource("3_dbgov")

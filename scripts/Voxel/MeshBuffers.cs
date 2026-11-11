@@ -11,6 +11,9 @@ public sealed class MeshBuffers
   public Color[] Colors = new Color[8192];
   /// <summary>CUSTOM0 per vertex: xyz = Transvoxel secondary offset, w = flag bits (see terrain.gdshader).</summary>
   public float[] Custom = new float[8192 * 4];
+  /// <summary>CUSTOM1 per vertex (only when HasMorph): offset from the new position back to the old surface.</summary>
+  public float[] Morph = new float[8192 * 3];
+  public bool HasMorph;
   public int[] Indices = new int[16384];
   public int VertexCount;
   public int IndexCount;
@@ -23,6 +26,7 @@ public sealed class MeshBuffers
     VertexCount = 0;
     IndexCount = 0;
     RegularIndexCount = 0;
+    HasMorph = false;
   }
 
   public int AddVertex(Vector3 p, Vector3 n, Color c, Vector3 offset, int flags)
@@ -34,6 +38,7 @@ public sealed class MeshBuffers
       Array.Resize(ref Normals, cap);
       Array.Resize(ref Colors, cap);
       Array.Resize(ref Custom, cap * 4);
+      Array.Resize(ref Morph, cap * 3);
     }
     int i = VertexCount++;
     Positions[i] = p;
@@ -58,6 +63,14 @@ public sealed class MeshBuffers
     Indices[IndexCount++] = c;
   }
 
+  /// <summary>AddSurfaceFromArrays format flags matching ToSurfaceArrays.</summary>
+  public static Mesh.ArrayFormat SurfaceFormat(bool morph)
+  {
+    long f = (long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom0Shift;
+    if (morph) f |= (long)Mesh.ArrayCustomFormat.RgbFloat << (int)Mesh.ArrayFormat.FormatCustom1Shift;
+    return (Mesh.ArrayFormat)f;
+  }
+
   private Vector3[] _faces = new Vector3[16384];
 
   /// <summary>
@@ -72,6 +85,7 @@ public sealed class MeshBuffers
     arrays[(int)Mesh.ArrayType.Normal] = Variant.CreateFrom(Normals.AsSpan(0, VertexCount));
     arrays[(int)Mesh.ArrayType.Color] = Variant.CreateFrom(Colors.AsSpan(0, VertexCount));
     arrays[(int)Mesh.ArrayType.Custom0] = Variant.CreateFrom(Custom.AsSpan(0, VertexCount * 4));
+    if (HasMorph) arrays[(int)Mesh.ArrayType.Custom1] = Variant.CreateFrom(Morph.AsSpan(0, VertexCount * 3));
     arrays[(int)Mesh.ArrayType.Index] = Variant.CreateFrom(Indices.AsSpan(0, IndexCount));
     return arrays;
   }
